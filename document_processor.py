@@ -10,17 +10,6 @@ def read_file(file_path: str) -> str:
         return file.read()
 
 def split_text(text: str, chunk_size: int, overlap: int) -> List[Dict[str, any]]:
-    """
-    Splits a string into overlapping chunks.
-    
-    Args:
-        text (str): The raw input text.
-        chunk_size (int): Max character length of a chunk.
-        overlap (int): Number of characters to overlap between chunks.
-        
-    Returns:
-        List[Dict[str, any]]: A list of dictionaries representing chunks.
-    """
 
     if chunk_size <= 0 or overlap < 0:
         raise ValueError("Chunk size must be positive and overlap must be non-negative.")
