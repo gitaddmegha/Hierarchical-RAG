@@ -26,3 +26,5 @@ learning_progress.md
 
 #testing files
 tests/
+
+.env

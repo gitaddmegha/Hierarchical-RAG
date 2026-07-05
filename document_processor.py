@@ -1,35 +1,49 @@
-"""
+import fitz
+from typing import List, Dict, Any
+from PIL import Image 
+import io
 
-Handles reading text files and chunking them using a sliding window approach.
-"""
+class HierarchialProcessor:
+    def __init__(self):
+        pass
 
-from typing import List, Dict
+    def process_pdf(self, file_path: str) -> List[Dict[str, Any]]:
+        nodes = []
+        doc = fitz.open(file_path)
 
-def read_file(file_path: str) -> str:
-    with open(file_path, "r",encoding ="UTF-8") as file:
-        return file.read()
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            parent_id = f"page_{page_num}"
 
-def split_text(text: str, chunk_size: int, overlap: int) -> List[Dict[str, any]]:
+            parent_node = {"id" : parent_id,"parent_id": None,
+             "type" : "page" ,
+             "content" : page.get_text()}
 
-    if chunk_size <= 0 or overlap < 0:
-        raise ValueError("Chunk size must be positive and overlap must be non-negative.")
-    if chunk_size <= overlap:
-        raise ValueError("Chunk size must be greater than overlap.")
+            nodes.append(parent_node)
 
-    chunks = []
-    chunk_id = 0
-    step_size = chunk_size - overlap
-    n = len(text)
-    start = 0
-    while start < n:
-        end = min(start + chunk_size, n)
-        chunk_text = text[start: end]
-        chunk_data = {"id" : chunk_id, "text" : chunk_text,
-        "start_char" : start, "end_char" : end
-        }
-        chunks.append(chunk_data)
-        start += step_size
-        chunk_id += 1
-    return chunks
+            blocks = page.get_text("blocks")
+            for i, block in enumerate(blocks):
+                text_content = block[4].strip()
+                if text_content: child_node = {
+                    "id" : f"{parent_id}_text_{i}",
+                    "parent_id": parent_id,
+                    "type" : "text",
+                    "content" : text_content
+                }
+                nodes.append(child_node)
 
-    pass
+            image_list = page.get_images(full= True)
+            for img_index, img_info in enumerate(image_list):
+                xref = img_info[0]
+                base_image = doc.extract_image(xref)
+                image_bytes = base_image["image"]
+                image = Image.open(io.BytesIO(image_bytes))
+                image_node = {
+                    "id" : f"{parent_id}_img_{img_index}",
+                    "parent_id": parent_id,
+                    "type" : "image",
+                    "content" : image
+                }
+                nodes.append(image_node)
+
+        return nodes
