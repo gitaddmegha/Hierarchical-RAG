@@ -1,6 +1,6 @@
 # Hierarchical - RAG: Multimodal Hierarchical RAG for Financial Reports
 
-An Enterprise-grade Multimodal Retrieval-Augmented Generation (RAG) pipeline designed to extract, orchestrate, and reason over complex financial tables and dense text in 10-K PDFs. 
+A multimodal Retrieval-Augmented Generation (RAG) pipeline designed to extract, orchestrate, and reason over complex financial tables and dense text in 10-K PDFs. 
 
 Built with **Python**, **Streamlit**, and **Gemini 2.5 Flash**, this architecture solves the notorious "table hallucination" problem found in traditional flat-text RAG systems.
 
