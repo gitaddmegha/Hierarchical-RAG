@@ -52,18 +52,16 @@ class EmbeddingModel:
 
 class SimpleVectorStore:
     def __init__(self):
-        self.documents: List[Dict[str,Any]] = []
+        self.nodes: Dict[str,Any] = {}
         self.embedding_matrix: np.ndarray = None
-    
-    def add_document(self, text: str, embedding: List[float],metadata: Dict[str,Any] = None, doc_id: Any = None) -> None:
-        if doc_id is None:
-            doc_id = len(self.documents)
-        self.documents.append({
-            "id" : doc_id,
-            "text" : text,
-            "embedding" : embedding,
-            "metadata" : metadata or {}
-        })
+        self.ordered_node_ids: List[str] = []
+    def add_node(self, node: Dict, embedding: List[float] = None) -> None:
+         """Adds a node to the graph. Only child text nodes receive embeddings."""
+         if embedding is not None:
+            node["embedding"] = embedding
+         self.ordered_node_ids.append(node["id"])
+         self.nodes[node["id"]] = node
+
     
     def save(self, file_path : str) -> None:
         with open(file_path, "w", encoding = "UTF-8")as f:
@@ -79,7 +77,7 @@ class SimpleVectorStore:
         Performs fully vectorized similarity search using matrix-vector multiplication.
         Assumes self.embedding_matrix is a 2D array and query_embedding is a 1D array.
         """
-        if self.embedding_matrix is None or len(self.documents) == 0:
+        if self.embedding_matrix is None or len(self.ordered_node_ids) == 0:
             return []
     
         norm = l2_normalize(query_embedding)
@@ -87,22 +85,25 @@ class SimpleVectorStore:
         sorted_idx = np.argsort(score)[::-1]
         results = []
         for i in sorted_idx[:top_k]:
-            results.append((self.documents[i], score[i]))
+            node_id = self.ordered_node_ids[i]
+            node = self.nodes[node_id]
+            results.append((node, score[i])) 
         return results
 
 
     def search_keyword(self, query_text: str, top_k: int= 3) -> List[Tuple[Dict[str,Any], float]]:
-        if not self.documents:
+        text_nodes = [n for n in self.nodes.values() if n["type"] == "text"]
+        if not text_nodes:
             return []
         
         query_tokens = tokenize(query_text)
         if not query_tokens:
-            return [(doc, 0.0) for doc in self.documents[:top_k]]
+            return [(doc, 0.0) for doc in text_nodes[:top_k]]
         
-        N = len(self.documents)
+        N = len(text_nodes)
         df = {}
         for token in query_tokens:
-            count = sum(1 for doc in self.documents if token in tokenize(doc["text"]))
+            count = sum(1 for doc in text_nodes if token in tokenize(doc["text"]))
             df[token] = count
 
         idf = {}
@@ -114,7 +115,7 @@ class SimpleVectorStore:
                 idf[token] = 0.0
             
         scored_docs = []
-        for doc in self.documents:
+        for doc in text_nodes:
             doc_tokens = tokenize(doc["text"])
             doc_len = len(doc_tokens)
             score = 0.0
