@@ -24,13 +24,14 @@ class HierarchialProcessor:
             blocks = page.get_text("blocks")
             for i, block in enumerate(blocks):
                 text_content = block[4].strip()
-                if text_content: child_node = {
-                    "id" : f"{parent_id}_text_{i}",
-                    "parent_id": parent_id,
-                    "type" : "text",
-                    "content" : text_content
-                }
-                nodes.append(child_node)
+                if text_content: 
+                    child_node = {
+                        "id" : f"{parent_id}_text_{i}",
+                        "parent_id": parent_id,
+                        "type" : "text",
+                        "content" : text_content
+                    }
+                    nodes.append(child_node)
 
             image_list = page.get_images(full= True)
             for img_index, img_info in enumerate(image_list):

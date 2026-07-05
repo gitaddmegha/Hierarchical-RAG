@@ -59,7 +59,7 @@ class SimpleVectorStore:
          """Adds a node to the graph. Only child text nodes receive embeddings."""
          if embedding is not None:
             node["embedding"] = embedding
-         self.ordered_node_ids.append(node["id"])
+            self.ordered_node_ids.append(node["id"])
          self.nodes[node["id"]] = node
 
     
@@ -103,7 +103,7 @@ class SimpleVectorStore:
         N = len(text_nodes)
         df = {}
         for token in query_tokens:
-            count = sum(1 for doc in text_nodes if token in tokenize(doc["text"]))
+            count = sum(1 for doc in text_nodes if token in tokenize(doc["content"]))
             df[token] = count
 
         idf = {}
@@ -116,7 +116,7 @@ class SimpleVectorStore:
             
         scored_docs = []
         for doc in text_nodes:
-            doc_tokens = tokenize(doc["text"])
+            doc_tokens = tokenize(doc["content"])
             doc_len = len(doc_tokens)
             score = 0.0
             if doc_len > 0:

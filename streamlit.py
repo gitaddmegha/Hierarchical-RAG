@@ -1,7 +1,7 @@
 import streamlit as st
 import numpy as np
 from app import RAGPipeline
-from document_processor import split_text
+from document_processor import HierarchialProcessor
 from vector_store import l2_normalize
 
 # 1. Initialize our RAG Pipeline in Streamlit's session state
@@ -14,27 +14,36 @@ st.title(" Medical AI Assistant")
 st.markdown("Upload a medical text document and ask questions about it!")
 
 # 2. File Uploader Widget
-uploaded_file = st.file_uploader("Upload a .txt document", type=["txt"])
-
+uploaded_file = st.file_uploader("Upload a Financial Report (.pdf)", type = ["pdf"])
 if uploaded_file is not None and not st.session_state.is_ready:
-    with st.spinner("Processing document..."):
-        # Read the raw text from the uploaded file
-        raw_text = uploaded_file.getvalue().decode("utf-8")
-        
-        chunks = split_text(raw_text, chunk_size=200, overlap=50) 
-        chunk_texts = [c["text"] for c in chunks]
+    with st.spinner("Parsing Hierarchical Graph and Extracting Images..."):
+        temp_path = "temp_upload.pdf"
+        with open(temp_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
 
-        # 1. Embed and Store
-        embeddings = st.session_state.pipeline.embedder.batch_embeddings(chunk_texts)
-        for i, (text, emb) in enumerate(zip(chunk_texts, embeddings)):
-            norm_emb = l2_normalize(np.array(emb)).tolist()
-            st.session_state.pipeline.store.add_document(text, norm_emb, doc_id=i)
-        
-        # 2. Build the Matrix
-        st.session_state.pipeline.store.embedding_matrix = np.array([doc["embedding"] for doc in st.session_state.pipeline.store.documents])
+        processor = HierarchialProcessor()
+        nodes = processor.process_pdf(temp_path)
+         #embed and store
+
+        text_nodes = [n for n in nodes if n["type"] == "text"]
+        embeddings = st.session_state.pipeline.embedder.batch_embeddings([n["content"] for n in text_nodes])
+        emb_idx = 0
+        for node in nodes:
+            if node["type"] == "text":
+                norm_emb = l2_normalize(np.array(embeddings[emb_idx])).tolist()
+                st.session_state.pipeline.store.add_node(node, norm_emb)
+                emb_idx += 1
+            else:
+                st.session_state.pipeline.store.add_node(node)
+        st.session_state.pipeline.store.embedding_matrix = np.array([
+            st.session_state.pipeline.store.nodes[node_id]["embedding"] 
+            for node_id in st.session_state.pipeline.store.ordered_node_ids
+        ])
     
         st.session_state.is_ready = True
-        st.success("Document processed and loaded into Vector Database!")
+        st.success("Graph constructed! Ready for FinQA.")
+
+
 
 # 3. Chat Interface
 if st.session_state.is_ready:

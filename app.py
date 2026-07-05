@@ -1,3 +1,4 @@
+import contextlib
 import numpy as np
 from vector_store import SimpleVectorStore, EmbeddingModel
 import google.generativeai as genai
@@ -12,10 +13,22 @@ class GeminiLLM:
         genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
         self.model = genai.GenerativeModel('gemini-2.5-flash')
         
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: list) -> str:
         response = self.model.generate_content(prompt)
         return response.text
 
+class GeminiJudge:
+    def __init__(self):
+        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+        # We enforce a strict JSON output schema!
+        self.model = genai.GenerativeModel(
+            'gemini-2.5-flash',
+            generation_config=genai.GenerationConfig(response_mime_type="application/json")
+        )
+        
+    def evaluate(self, prompt: str) -> str:
+        response = self.model.generate_content(prompt)
+        return response.text
 
 class RAGPipeline:
     def __init__(self):
@@ -28,21 +41,27 @@ class RAGPipeline:
         results = self.store.search_hybrid(user_query, np.array(embedd), top_k=2)
         context_pieces = []
 
-        for doc, score in results:
-            context_pieces.append(doc["text"])
+        image_pieces = []
+        seen_parents = set()
 
+        for child_node, score in results:
+            parent_id = child_node["parent_id"]
+            if parent_id not in seen_parents:
+                seen_parents.add(parent_id)
+                parent_node = self.store.nodes[parent_id]
+                context_pieces.append(parent_node["content"])
+                for node in self.store.nodes.values():
+                    if node.get("parent_id") == parent_id and node["type"] == "image":
+                        image_pieces.append(node["content"])
+        
         full_context = "\n".join(context_pieces)
         prompt = f"""
-            You are an AI assistant. Answer the user's question based ONLY on the provided context.
-            
-            Context:
-            {full_context}
-            
-            Question:
-            {user_query}
-            """
-            
-        return self.llm.generate(prompt)
+         you are an intelligent AI assistant.Anwer logically based ONLY on the provided context.
+           Context: {full_context}
+           Question: {user_query}
+           """
+        final_payload = [prompt] + image_pieces
+        return self.llm.generate(final_payload)
 
             
 if __name__ == "__main__":

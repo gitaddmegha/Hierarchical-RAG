@@ -28,3 +28,5 @@ learning_progress.md
 tests/
 
 .env
+temp_upload.pdf
+benchmark.py
